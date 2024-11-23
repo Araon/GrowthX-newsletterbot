@@ -9,4 +9,4 @@ A Next.js application that generates comprehensive newsletter content about comp
 - Dynamic loading with progress indication
 - Markdown and plain text output support
 - Citation listing for research sources
-- Responsive React frontend
+- minimal design
