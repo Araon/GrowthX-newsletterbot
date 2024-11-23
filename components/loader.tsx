@@ -4,6 +4,10 @@ const loadingMessages = [
   "Researching company details...",
   "Analyzing market trends...",
   "Crafting engaging content...",
+  "Generating insights...",
+  "Compiling the report...",
+  "Making sure everything looks good...",
+  "Formatting the data...",
   "Polishing the newsletter...",
   "Almost there...",
 ];

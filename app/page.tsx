@@ -16,10 +16,10 @@ export default function Home() {
   const [provideData, setProvideData] = useState(false);
   const [companyData, setCompanyData] = useState({
     metrics: {
-      revenue: null,
-      funding: null,
-      market_share: null,
-      growth_rate: null,
+      revenue: 0,
+      funding: 0,
+      market_share: 0,
+      growth_rate: 0,
     },
     business_model: {
       core_offering: "",
@@ -28,7 +28,7 @@ export default function Home() {
       partnerships: [],
     },
     context: {
-      market_size: null,
+      market_size: 0,
       key_players: [],
       recent_developments: [],
     },
