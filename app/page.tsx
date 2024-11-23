@@ -7,13 +7,33 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Loader } from "@/components/loader";
+import { CompanyDataForm } from "@/components/company-data-form";
 
 export default function Home() {
   const [companyName, setCompanyName] = useState("");
   const [newsletter, setNewsletter] = useState("");
   const [loading, setLoading] = useState(false);
   const [provideData, setProvideData] = useState(false);
-  const [companyData, setCompanyData] = useState("");
+  const [companyData, setCompanyData] = useState({
+    metrics: {
+      revenue: null,
+      funding: null,
+      market_share: null,
+      growth_rate: null,
+    },
+    business_model: {
+      core_offering: "",
+      unit_economics: "",
+      channels: [],
+      partnerships: [],
+    },
+    context: {
+      market_size: null,
+      key_players: [],
+      recent_developments: [],
+    },
+    analysis_points: [],
+  });
   const [htmlContent, setHtmlContent] = useState("");
   const [isMarkdown, setIsMarkdown] = useState(false);
   const [rawApiResponse, setRawApiResponse] = useState("");
@@ -39,7 +59,7 @@ export default function Home() {
         },
         body: JSON.stringify({
           company_name: companyName,
-          company_data: provideData ? JSON.parse(companyData) : null,
+          company_data: provideData ? companyData : null,
         }),
       });
       const data = await response.json();
@@ -78,16 +98,10 @@ export default function Home() {
           <Label htmlFor="provide-data">Provide company data</Label>
         </div>
         {provideData && (
-          <div>
-            <Label htmlFor="company-data">Company Data (JSON format)</Label>
-            <Textarea
-              id="company-data"
-              value={companyData}
-              onChange={(e) => setCompanyData(e.target.value)}
-              placeholder="Enter company data in JSON format"
-              rows={10}
-            />
-          </div>
+          <CompanyDataForm
+            companyData={companyData}
+            setCompanyData={setCompanyData}
+          />
         )}
         <Button onClick={generateNewsletter} disabled={loading}>
           {loading ? "Generating..." : "Generate Newsletter"}
