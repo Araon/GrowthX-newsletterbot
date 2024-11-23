@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Loader } from "@/components/loader";
 
 export default function Home() {
   const [companyName, setCompanyName] = useState("");
@@ -13,6 +14,9 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [provideData, setProvideData] = useState(false);
   const [companyData, setCompanyData] = useState("");
+  const [htmlContent, setHtmlContent] = useState("");
+  const [isMarkdown, setIsMarkdown] = useState(false);
+  const [rawApiResponse, setRawApiResponse] = useState("");
 
   const generateNewsletter = async () => {
     if (!companyName) {
@@ -21,6 +25,10 @@ export default function Home() {
     }
 
     setLoading(true);
+    setNewsletter("");
+    setHtmlContent("");
+    setRawApiResponse("");
+
     try {
       const response = await fetch("/api/generate-newsletter", {
         method: "POST",
@@ -34,6 +42,9 @@ export default function Home() {
       });
       const data = await response.json();
       setNewsletter(data.story);
+      setHtmlContent(data.htmlContent);
+      setIsMarkdown(data.isMarkdown);
+      setRawApiResponse(data.rawApiResponse);
     } catch (error) {
       console.error("Error generating newsletter:", error);
       alert("Failed to generate newsletter. Please try again.");
@@ -79,8 +90,29 @@ export default function Home() {
           {loading ? "Generating..." : "Generate Newsletter"}
         </Button>
       </div>
-      {newsletter && (
-        <Textarea className="mt-4" value={newsletter} readOnly rows={20} />
+      {loading && (
+        <div className="mt-8">
+          <Loader />
+        </div>
+      )}
+      {newsletter && !loading && (
+        <div className="mt-4">
+          <h2 className="text-xl font-bold mb-2">Generated Newsletter</h2>
+          {isMarkdown ? (
+            <div
+              className="prose max-w-none"
+              dangerouslySetInnerHTML={{ __html: htmlContent }}
+            />
+          ) : (
+            <Textarea value={newsletter} readOnly rows={20} />
+          )}
+        </div>
+      )}
+      {rawApiResponse && !loading && (
+        <div className="mt-4">
+          <h2 className="text-xl font-bold mb-2">Raw API Response</h2>
+          <Textarea value={rawApiResponse} readOnly rows={10} />
+        </div>
       )}
     </main>
   );

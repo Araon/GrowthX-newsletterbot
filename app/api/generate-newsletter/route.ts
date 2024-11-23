@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { generateText } from "ai";
 import { openai } from "@ai-sdk/openai";
 import axios from "axios";
+import { remark } from "remark";
+import html from "remark-html";
 
 class NewsletterResearchBot {
   private story_template: {
@@ -88,7 +90,7 @@ class NewsletterResearchBot {
   async generate_hook(company_name: string) {
     const prompt = `Create an engaging headline for a newsletter about ${company_name}, highlighting its innovative business model and recent growth. Include a sense of excitement.`;
     const { text } = await generateText({
-      model: openai("gpt-3.5-turbo"),
+      model: openai("gpt-4o-mini"),
       messages: [{ role: "user", content: prompt }],
       maxTokens: 20,
       temperature: 0.8,
@@ -125,7 +127,7 @@ Metrics: ${JSON.stringify(story_data.metrics)}
 Business Model: ${JSON.stringify(story_data.business_model)}
 Analysis Points: ${JSON.stringify(story_data.analysis_points)}
 
-Structure the research document into sections like Context, Business Model, Metrics, and Insights. The text should be in plain text.`;
+Structure the story into sections like Context, Business Model, Metrics, and Insights.`;
 
     const { text } = await generateText({
       model: openai("gpt-4o-mini"),
@@ -159,62 +161,49 @@ async function researchCompanyWithPerplexity(company_name: string) {
     throw new Error("Perplexity API key is not set");
   }
 
-  try {
-    const response = await axios.post(
-      "https://api.perplexity.ai/chat/completions",
-      {
-        model: "llama-3.1-sonar-small-128k-online",
-        messages: [
-          {
-            role: "system",
-            content:
-              "You are a helpful assistant that provides accurate information about companies.",
-          },
-          {
-            role: "user",
-            content: `Research the company ${company_name} and provide information about its business model, metrics (if available), market context, and key analysis points. Format the response strictly as a JSON object with keys: business_model, metrics, context, and analysis_points. Do not include any explanations, code fences, or additional formatting. Provide only the JSON object.`,
-          },
-        ],
-        max_tokens: 10000, // Increased from 500 to 10000
-        temperature: 0.7,
-        top_p: 0.9,
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${PERPLEXITY_API_KEY}`,
-          "Content-Type": "application/json",
+  const response = await axios.post(
+    "https://api.perplexity.ai/chat/completions",
+    {
+      model: "llama-3.1-sonar-small-128k-online",
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are a helpful assistant that provides accurate information about companies.",
         },
-      }
-    );
-
-    let assistantMessage = response.data.choices[0].message.content;
-
-    // Remove code fences if present
-    assistantMessage = assistantMessage
-      .replace(/(^```(?:json)?\s*|```$)/g, "")
-      .trim();
-
-    console.log("Perplexity Assistant's response:", assistantMessage);
-
-    // Parse the JSON
-    let researchData;
-    try {
-      researchData = JSON.parse(assistantMessage);
-    } catch (parseError) {
-      console.error("JSON Parsing Error:", parseError);
-      console.error("Assistant's response:", assistantMessage);
-      throw new Error("Failed to parse assistant's response as JSON");
+        {
+          role: "user",
+          content: `Research the company ${company_name} and provide information about its business model, metrics (if available), market context, and key analysis points. Format the response strictly as a JSON object with keys: business_model, metrics, context, and analysis_points. Do not include any explanations, code fences, or additional formatting. Provide only the JSON object.`,
+        },
+      ],
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${PERPLEXITY_API_KEY}`,
+        "Content-Type": "application/json",
+      },
     }
+  );
 
-    return researchData;
+  let assistantMessage = response.data.choices[0].message.content;
+
+  assistantMessage = assistantMessage
+    .replace(/(^```(?:json)?\s*|```$)/g, "")
+    .trim();
+
+  let researchData = null;
+  try {
+    researchData = JSON.parse(assistantMessage);
   } catch (error) {
-    if (axios.isAxiosError(error) && error.response) {
-      console.error("Perplexity API Error:", error.response.data);
-    } else {
-      console.error("Unexpected Error:", error);
-    }
-    throw error; // Re-throw the error after logging
+    console.error("Error parsing JSON response from Perplexity:", error);
+    throw new Error("Failed to parse JSON response from Perplexity");
   }
+  return researchData;
+}
+
+async function markdownToHtml(markdown: string) {
+  const result = await remark().use(html).process(markdown);
+  return result.toString();
 }
 
 export async function POST(req: Request) {
@@ -223,41 +212,73 @@ export async function POST(req: Request) {
     const bot = new NewsletterResearchBot();
 
     let research_data = company_data;
+    let rawApiResponse = null;
     if (!company_data) {
-      research_data = await researchCompanyWithPerplexity(company_name);
+      try {
+        research_data = await researchCompanyWithPerplexity(company_name);
+      } catch (error) {
+        console.error("Error fetching data from Perplexity:", error);
+        if (error instanceof Error) {
+          rawApiResponse = error.message;
+        } else {
+          rawApiResponse = "An unknown error occurred";
+        }
+      }
     }
 
-    const story = await bot.research_company(company_name, research_data);
-    if (!story.headline) {
-      throw new Error("Generated headline is null");
+    if (!research_data && !rawApiResponse) {
+      throw new Error("Failed to fetch company data");
     }
-    if (!story.headline) {
-      throw new Error("Generated headline is null");
-    }
-    const formatted_story = await bot.format_story(
-      story as {
-        headline: string;
-        context: {
-          market_size: string | null;
-          key_players: string[];
-          recent_developments: string[];
-        };
-        metrics: {
-          revenue: number | null;
-          funding: number | null;
-          market_share: number | null;
-          growth_rate: number | null;
-        };
-        business_model: {
-          core_offering: string | null;
-          unit_economics: string | null;
-          channels: string[];
-          partnerships: string[];
-        };
-        analysis_points: string[];
+
+    let formatted_story = "";
+    if (research_data) {
+      const story = await bot.research_company(company_name, research_data);
+      if (!story.headline) {
+        throw new Error("Generated headline is null");
       }
-    );
-    return NextResponse.json({ story: formatted_story });
+      if (!story.headline) {
+        throw new Error("Generated headline is null");
+      }
+      formatted_story = await bot.format_story(
+        story as {
+          headline: string;
+          context: {
+            market_size: string | null;
+            key_players: string[];
+            recent_developments: string[];
+          };
+          metrics: {
+            revenue: number | null;
+            funding: number | null;
+            market_share: number | null;
+            growth_rate: number | null;
+          };
+          business_model: {
+            core_offering: string | null;
+            unit_economics: string | null;
+            channels: string[];
+            partnerships: string[];
+          };
+          analysis_points: string[];
+        }
+      );
+    }
+
+    // Check if the formatted_story is in markdown format
+    const isMarkdown =
+      formatted_story.includes("##") || formatted_story.includes("*");
+
+    let htmlContent = "";
+    if (isMarkdown) {
+      htmlContent = await markdownToHtml(formatted_story);
+    }
+
+    return NextResponse.json({
+      story: formatted_story,
+      htmlContent,
+      isMarkdown,
+      rawApiResponse,
+    });
   } catch (error) {
     console.error("Error generating newsletter:", error);
     return NextResponse.json(
