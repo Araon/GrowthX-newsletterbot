@@ -17,6 +17,7 @@ export default function Home() {
   const [htmlContent, setHtmlContent] = useState("");
   const [isMarkdown, setIsMarkdown] = useState(false);
   const [rawApiResponse, setRawApiResponse] = useState("");
+  const [citations, setCitations] = useState<string[]>([]);
 
   const generateNewsletter = async () => {
     if (!companyName) {
@@ -28,6 +29,7 @@ export default function Home() {
     setNewsletter("");
     setHtmlContent("");
     setRawApiResponse("");
+    setCitations([]);
 
     try {
       const response = await fetch("/api/generate-newsletter", {
@@ -45,6 +47,7 @@ export default function Home() {
       setHtmlContent(data.htmlContent);
       setIsMarkdown(data.isMarkdown);
       setRawApiResponse(data.rawApiResponse);
+      setCitations(data.citations || []);
     } catch (error) {
       console.error("Error generating newsletter:", error);
       alert("Failed to generate newsletter. Please try again.");
@@ -112,6 +115,25 @@ export default function Home() {
         <div className="mt-4">
           <h2 className="text-xl font-bold mb-2">Raw API Response</h2>
           <Textarea value={rawApiResponse} readOnly rows={10} />
+        </div>
+      )}
+      {citations.length > 0 && (
+        <div className="mt-4">
+          <h2 className="text-xl font-bold mb-2">Citations</h2>
+          <ul className="list-disc pl-5">
+            {citations.map((citation, index) => (
+              <li key={index}>
+                <a
+                  href={citation}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-500 hover:underline"
+                >
+                  {citation}
+                </a>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
     </main>
