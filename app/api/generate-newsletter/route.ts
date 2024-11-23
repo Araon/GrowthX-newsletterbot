@@ -246,6 +246,8 @@ async function markdownToHtml(markdown: string) {
   return result.toString();
 }
 
+export const runtime = "edge";
+
 export async function POST(req: Request) {
   try {
     const { company_name, company_data } = await req.json();
